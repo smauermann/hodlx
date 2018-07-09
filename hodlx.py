@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,9 +12,9 @@ DATA_LOCATION = os.path.join(os.path.expanduser('~'), 'projects/hodlx/')
 CMC_API_BASE = 'https://api.coinmarketcap.com/v2/'
 
 def make_get_request(url, return_df=False):
-    """Makes get request to specified url. Returns json or DataFrame object.
-    """
+    """Makes get request to specified url. Returns json or DataFrame object."""
     r = requests.get(url)
+    
     if (r.ok):
         data = json.loads(r.content)
         if return_df:
@@ -22,19 +23,28 @@ def make_get_request(url, return_df=False):
                 return None
     else:
         raise ValueError("Unable to fetch from {}!".format(url))
+    
     return data
 
-def fetch_cmc_ranking():
-    """Fetches global marketcap data from coinmarketcap.com or disk. Defaults to all coins if n_coins not specified.
-    """
-    file_name = "cmc_ranking_{}.csv".format(NOW)
-    file_path = os.path.join(DATA_LOCATION , file_name)
+def fetch_cmc_ranking(save=False, quote='USD', limit=100):
+    """Fetches global marketcap data from coinmarketcap.com or disk."""
+    file_path = os.path.join(DATA_LOCATION ,"cmc_ranking.csv")
 
-    if os.path.isfile(file_path):
+    try:
         cmc_df = pd.read_csv(file_path, index_col=0)
-    else:
-        api_url = CMC_API_BASE + 'ticker/'
-        cmc_dict = make_get_request(api_url)
-        cmc_df = pd.DataFrame([value for value in cmc_dict['data'].values()])
-        cmc_df.to_csv(file_path)
+    except FileNotFoundError:
+        api_url = CMC_API_BASE + 'ticker/?limit={}'.format(limit)
+        cmc_raw = make_get_request(api_url)
+        
+        # metadata = cmc_raw['metadata']
+        # cmc_date = datetime.fromtimestamp(metadata['timestamp'])
+
+        cmc_data = []
+        for key, val in cmc_raw['data'].items():
+            quotes = val.pop('quotes')[quote]
+            cmc_data.append({**val, **quotes})
+        cmc_df = pd.DataFrame(cmc_data)
+        if save:
+            cmc_df.to_csv(file_path)
+    
     return cmc_df
