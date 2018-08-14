@@ -7,7 +7,7 @@ import pandas as pd
 import requests
 import time
 
-DATA_LOCATION = os.path.join(os.path.expanduser('~'), 'projects/hodlx/')
+DATA_LOCATION = os.path.join(os.path.expanduser('~'), 'projects/crypto_trading/hodlx/')
 CMC_API_BASE = 'https://api.coinmarketcap.com/v2/'
 
 def make_get_request(url, return_df=False):
@@ -25,7 +25,7 @@ def make_get_request(url, return_df=False):
     
     return data
 
-def fetch_cmc_ranking(save=False, quote='USD', limit=100):
+def fetch_cmc_ranking(save=False, quote='USD', limit=100, shitcoins=None):
     """Fetches global marketcap data from coinmarketcap.com or disk."""
     file_path = os.path.join(DATA_LOCATION ,"cmc_ranking.csv")
 
@@ -35,11 +35,16 @@ def fetch_cmc_ranking(save=False, quote='USD', limit=100):
         api_url = CMC_API_BASE + 'ticker/?limit={}'.format(limit)
         cmc_raw = make_get_request(api_url)
         
+        # coinmarketcap returns nested dict, clean up to obtain flat structure
         cmc_data = []
         for key, val in cmc_raw['data'].items():
             quotes = val.pop('quotes')[quote]
             cmc_data.append({**val, **quotes})
         cmc_df = pd.DataFrame(cmc_data)
+        
+        # filter out coins we do not want in the ranking
+        if shitcoins is not None:
+            cmc_df = cmc_df.query('symbol not in @shitcoins')
         if save:
             cmc_df.to_csv(file_path)
     
@@ -116,8 +121,8 @@ def compute_modified_weights(market_cap, n=None):
 
 if __name__ == '__main__':
     def example():
-        cmc_ranking = fetch_cmc_ranking()
+        cmc_ranking = fetch_cmc_ranking(shitcoins=['XRP', 'USDT', 'TRX', 'MIOTA', 'XTZ', 'DOGE', 'BCN'])
         mcap = cmc_ranking['market_cap']
-        weights = compute_modified_weights(mcap, 20)
-        print(weights)
-
+        weights = compute_modified_weights(mcap, 25)
+        print(weights*100)
+    example()
